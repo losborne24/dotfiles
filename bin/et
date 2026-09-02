@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -e
+
+TASK="$1"
+STATE_FILE="$HOME/.task-worktrees/$TASK"
+
+if [[ -z "$TASK" ]]; then
+  echo "Usage: et <task>"
+  exit 1
+fi
+
+if [[ ! -f "$STATE_FILE" ]]; then
+  echo "Task not found: $TASK"
+  exit 1
+fi
+
+WORKTREE=$(cat "$STATE_FILE")
+
+if [[ ! -d "$WORKTREE" ]]; then
+  echo "Worktree not found: $WORKTREE"
+  rm "$STATE_FILE"
+  exit 1
+fi
+
+cd "$WORKTREE"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "ERROR: Worktree has uncommitted changes:"
+  git status --short
+  exit 1
+fi
+
+REPO=$(git rev-parse --git-common-dir | sed 's#/.git$##')
+
+cd "$REPO"
+
+git worktree remove "$WORKTREE"
+rm "$STATE_FILE"
+
+echo "Removed task: $TASK"

@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -e
+
+TASK="$1"
+MESSAGE="$2"
+STATE_FILE="$HOME/.task-worktrees/$TASK"
+
+if [[ -z "$TASK" || -z "$MESSAGE" ]]; then
+  echo 'Usage: ct <task> "<commit-message>"'
+  exit 1
+fi
+
+if [[ ! -f "$STATE_FILE" ]]; then
+  echo "Task not found: $TASK"
+  exit 1
+fi
+
+WORKTREE=$(cat "$STATE_FILE")
+
+if [[ ! -d "$WORKTREE" ]]; then
+  echo "Worktree not found: $WORKTREE"
+  exit 1
+fi
+
+cd "$WORKTREE"
+
+echo "Changes:"
+git status --short
+
+echo
+git diff --stat
+
+echo
+read -r -p "Commit these changes? [y/N] " CONFIRM
+
+if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+  echo "Cancelled."
+  exit 0
+fi
+
+git add .
+git commit -m "$MESSAGE"
+
+BRANCH=$(git branch --show-current)
+
+echo
+read -r -p "Push $BRANCH? [y/N] " PUSH
+
+if [[ "$PUSH" == "y" || "$PUSH" == "Y" ]]; then
+  git push -u origin "$BRANCH"
+fi

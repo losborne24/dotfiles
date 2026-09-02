@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -e
+
+TASK="$1"
+REPO_NAME="Treasury2"
+IDE="idea"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --vscode)
+      IDE="code"
+      shift
+      ;;
+    --idea)
+      IDE="idea"
+      shift
+      ;;
+    --repo)
+      REPO_NAME="$2"
+      shift 2
+      ;;
+    *)
+      if [[ -z "$TASK" ]]; then
+        TASK="$1"
+        shift
+      else
+        echo "Unknown argument: $1"
+        exit 1
+      fi
+      ;;
+  esac
+done
+
+if [[ -z "$TASK" ]]; then
+  echo "Usage: nt <task> [--repo <repo>] [--idea|--vscode]"
+  exit 1
+fi
+
+REPO="$HOME/Documents/GitHub/$REPO_NAME"
+WORKTREES="$HOME/Documents/GitHub/$REPO_NAME-worktrees"
+WORKTREE="$WORKTREES/$TASK"
+STATE_DIR="$HOME/.task-worktrees"
+STATE_FILE="$STATE_DIR/$TASK"
+BRANCH="$TASK"
+
+if [[ ! -d "$REPO" ]]; then
+  echo "Repository not found: $REPO"
+  exit 1
+fi
+
+if [[ -e "$STATE_FILE" ]]; then
+  echo "Task already exists: $TASK"
+  exit 1
+fi
+
+mkdir -p "$WORKTREES" "$STATE_DIR"
+
+cd "$REPO"
+git worktree add "$WORKTREE" -b "$BRANCH"
+
+echo "$WORKTREE" > "$STATE_FILE"
+
+cd "$WORKTREE"
+
+echo
+echo "Created:"
+echo "  Repo:     $REPO_NAME"
+echo "  Worktree: $WORKTREE"
+echo "  Branch:   $BRANCH"
+echo "  IDE:      $IDE"
+echo
+
+"$IDE" .

@@ -14,34 +14,34 @@ Requires `git`, `claude`, `idea`, and optionally `code`.
 
 ## Workflow
 
-```bash
-nt test
-```
 
 Create a worktree, open IntelliJ, and start Claude.
 
 ```bash
-nt test --vscode
+nt test
 ```
 
 Use VS Code instead.
 
 ```bash
-nt test --repo OtherRepo
+nt test --vscode
 ```
 
 Use another repo.
 
-From the worktree:
-
 ```bash
-ct "Fix test"
+nt test --repo OtherRepo
 ```
 
 Commit and optionally push.
 
 ```bash
-et
+ct "Fix test"
 ```
 
 Remove the current worktree.
+
+```bash
+et
+```
+

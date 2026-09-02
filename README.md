@@ -1,6 +1,6 @@
 # Dotfiles
 
-Personal scripts for managing Claude Code + Git worktrees.
+Personal scripts for Claude Code + Git worktrees.
 
 ## Setup
 
@@ -32,14 +32,16 @@ nt test --repo OtherRepo
 
 Use another repo.
 
+From the worktree:
+
 ```bash
-ct test "Fix test"
+ct "Fix test"
 ```
 
 Commit and optionally push.
 
 ```bash
-et test
+et
 ```
 
-Remove the worktree.
+Remove the current worktree.

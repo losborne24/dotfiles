@@ -1,28 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
-TASK="$1"
-MESSAGE="$2"
-STATE_FILE="$HOME/.task-worktrees/$TASK"
-
-if [[ -z "$TASK" || -z "$MESSAGE" ]]; then
-  echo 'Usage: ct <task> "<commit-message>"'
+if [[ -z "$1" ]]; then
+  echo 'Usage: ct "<commit-message>"'
   exit 1
 fi
 
-if [[ ! -f "$STATE_FILE" ]]; then
-  echo "Task not found: $TASK"
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Not inside a Git worktree"
   exit 1
 fi
 
-WORKTREE=$(cat "$STATE_FILE")
-
-if [[ ! -d "$WORKTREE" ]]; then
-  echo "Worktree not found: $WORKTREE"
-  exit 1
-fi
-
-cd "$WORKTREE"
+MESSAGE="$1"
 
 echo "Changes:"
 git status --short

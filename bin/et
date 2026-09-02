@@ -1,28 +1,19 @@
 #!/usr/bin/env bash
 set -e
 
-TASK="$1"
-STATE_FILE="$HOME/.task-worktrees/$TASK"
-
-if [[ -z "$TASK" ]]; then
-  echo "Usage: et <task>"
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Not inside a Git worktree"
   exit 1
 fi
 
-if [[ ! -f "$STATE_FILE" ]]; then
-  echo "Task not found: $TASK"
+WORKTREE=$(git rev-parse --show-toplevel)
+GIT_DIR=$(git rev-parse --git-common-dir)
+REPO=$(cd "$(dirname "$GIT_DIR")" && pwd)
+
+if [[ "$WORKTREE" == "$REPO" ]]; then
+  echo "You're in the main repository, not a worktree"
   exit 1
 fi
-
-WORKTREE=$(cat "$STATE_FILE")
-
-if [[ ! -d "$WORKTREE" ]]; then
-  echo "Worktree not found: $WORKTREE"
-  rm "$STATE_FILE"
-  exit 1
-fi
-
-cd "$WORKTREE"
 
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "ERROR: Worktree has uncommitted changes:"
@@ -30,11 +21,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-REPO=$(git rev-parse --git-common-dir | sed 's#/.git$##')
-
 cd "$REPO"
-
 git worktree remove "$WORKTREE"
-rm "$STATE_FILE"
 
-echo "Removed task: $TASK"
+echo "Removed: $WORKTREE"

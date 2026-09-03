@@ -1,0 +1,246 @@
+#!/usr/bin/env bash
+set -e
+
+IDE="idea"
+CLEANUP=false
+PR_ARG=""
+
+usage() {
+  echo "Usage: prr [-v|-i] [-c|--cleanup] <github-pr-url|pr-number> [--repo <owner/repo>]"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -v|--vscode)
+      IDE="code"
+      ;;
+    -i|--idea)
+      IDE="idea"
+      ;;
+    -c|--cleanup)
+      CLEANUP=true
+      ;;
+    --repo)
+      shift
+      REPO_SLUG="$1"
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      if [[ -z "$PR_ARG" ]]; then
+        PR_ARG="$1"
+      else
+        echo "Unknown argument: $1"
+        exit 1
+      fi
+      ;;
+  esac
+  shift
+done
+
+if [[ -z "$PR_ARG" ]]; then
+  usage
+  exit 1
+fi
+
+# -----------------------------
+# Resolve owner/repo/number
+# -----------------------------
+if [[ "$PR_ARG" =~ github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
+  OWNER="${BASH_REMATCH[1]}"
+  REPO_NAME="${BASH_REMATCH[2]%.git}"
+  PR_NUMBER="${BASH_REMATCH[3]}"
+elif [[ "$PR_ARG" =~ ^[0-9]+$ ]]; then
+  if [[ -z "${REPO_SLUG:-}" ]]; then
+    echo "A bare PR number needs --repo <owner/repo>"
+    exit 1
+  fi
+  OWNER="${REPO_SLUG%%/*}"
+  REPO_NAME="${REPO_SLUG##*/}"
+  REPO_NAME="${REPO_NAME%.git}"
+  PR_NUMBER="$PR_ARG"
+else
+  echo "Invalid GitHub PR URL or number: $PR_ARG"
+  exit 1
+fi
+
+BASE_DIR="$HOME/Documents/GitHub"
+REPO="$BASE_DIR/$REPO_NAME"
+WORKTREES="$BASE_DIR/.prr-worktrees/$REPO_NAME"
+WORKTREE="$WORKTREES/pr-$PR_NUMBER"
+
+if [[ ! -d "$REPO" ]]; then
+  echo "Repository not found: $REPO"
+  exit 1
+fi
+
+# Drop registrations whose directories are gone, so add/remove agree with disk.
+git -C "$REPO" worktree prune
+
+# -----------------------------
+# Cleanup
+# -----------------------------
+if [[ "$CLEANUP" == true ]]; then
+  if [[ ! -e "$WORKTREE" ]]; then
+    echo "No worktree found for PR #$PR_NUMBER"
+    exit 0
+  fi
+
+  BRANCH="$(git -C "$WORKTREE" branch --show-current || true)"
+
+  echo "Removing worktree: $WORKTREE"
+
+  if ! git -C "$REPO" worktree remove "$WORKTREE"; then
+    echo "Worktree has uncommitted changes or is locked."
+    read -r -p "Force remove? [y/N] " CONFIRM
+
+    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+      echo "Cancelled."
+      exit 1
+    fi
+
+    git -C "$REPO" worktree remove --force "$WORKTREE"
+  fi
+
+  if [[ -n "$BRANCH" ]]; then
+    read -r -p "Delete local branch $BRANCH? [y/N] " DELETE
+
+    if [[ "$DELETE" == "y" || "$DELETE" == "Y" ]]; then
+      git -C "$REPO" branch -D "$BRANCH"
+    fi
+  fi
+
+  echo "Removed PR #$PR_NUMBER worktree"
+  exit 0
+fi
+
+# -----------------------------
+# Create/reuse worktree
+# -----------------------------
+mkdir -p "$WORKTREES"
+
+if [[ -e "$WORKTREE/.git" ]]; then
+  echo "Reusing existing worktree: $WORKTREE"
+else
+  echo "Creating worktree for PR #$PR_NUMBER..."
+
+  # gh operates on the git repo in the working directory, so run it from $REPO.
+  cd "$REPO"
+  gh pr checkout "$PR_NUMBER" \
+    --repo "$OWNER/$REPO_NAME" \
+    --branch "pr-$PR_NUMBER" \
+    --worktree "$WORKTREE"
+fi
+
+# -----------------------------
+# Open IDE
+# -----------------------------
+if [[ "$IDE" == "code" ]]; then
+  APP="Visual Studio Code"
+else
+  APP="IntelliJ IDEA"
+fi
+
+# Launch via the CLI shim when it works, else fall back to LaunchServices. The
+# shim is a symlink into the app bundle, so it dangles whenever the app is
+# quarantined and macOS relocates it (App Translocation).
+open_ide() {
+  if command -v "$IDE" >/dev/null 2>&1; then
+    "$IDE" "$WORKTREE" >/dev/null 2>&1 &
+    return 0
+  fi
+
+  if open -Ra "$APP" >/dev/null 2>&1; then
+    echo "('$IDE' shim is broken; launching $APP directly)"
+    open -a "$APP" "$WORKTREE"
+    return 0
+  fi
+
+  echo "Neither the '$IDE' command nor $APP could be found"
+
+  if [[ "$IDE" == "idea" ]]; then
+    echo "In IntelliJ: Tools -> Create Command-line Launcher"
+  fi
+
+  return 1
+}
+
+cd "$WORKTREE"
+
+case "$IDE" in
+  code)
+    echo "Opening VS Code..."
+    open_ide
+
+    echo "Waiting for VS Code..."
+    sleep 4
+
+    # Open the GitHub Pull Requests view via the command palette. The activity
+    # bar lives in a webview, so its buttons are not in the accessibility tree
+    # and cannot be clicked directly. Needs Accessibility permission, so treat
+    # failure as non-fatal.
+    osascript <<'EOF' || echo "Could not open the Pull Requests view automatically"
+tell application "Visual Studio Code"
+    activate
+end tell
+
+delay 2
+
+tell application "System Events"
+    tell process "Code"
+        keystroke "p" using {command down, shift down}
+        delay 1
+
+        keystroke "GitHub Pull Request: Focus on Review Pull Request View"
+        delay 1.5
+
+        key code 36
+    end tell
+end tell
+EOF
+    ;;
+
+  idea)
+    echo "Opening IntelliJ..."
+    open_ide
+
+    echo "Waiting for IntelliJ..."
+    sleep 5
+
+    # Open the GitHub Pull Requests tool window via Find Action. Needs
+    # Accessibility permission, so treat failure as non-fatal.
+    osascript <<'EOF' || echo "Could not open the Pull Requests tool window automatically"
+tell application "IntelliJ IDEA"
+    activate
+end tell
+
+delay 2
+
+tell application "System Events"
+    tell process "IntelliJ IDEA"
+        keystroke "a" using {command down, shift down}
+        delay 1
+
+        keystroke "View Pull Requests"
+        delay 1.5
+
+        key code 36
+        delay 3
+    end tell
+end tell
+EOF
+    ;;
+esac
+
+echo
+echo "PR #$PR_NUMBER: $WORKTREE"
+echo
+echo "Cleanup:"
+
+if [[ "$PR_ARG" =~ ^[0-9]+$ ]]; then
+  echo "  prr -c $PR_ARG --repo $OWNER/$REPO_NAME"
+else
+  echo "  prr -c $PR_ARG"
+fi

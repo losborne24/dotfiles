@@ -247,7 +247,7 @@ tell application "System Events"
     keystroke "a" using {command down, shift down}
     delay 1
 
-    keystroke "View Pull Requests"
+    keystroke "Show Pull Request in the Tool Window"
     delay 1.5
 end tell
 

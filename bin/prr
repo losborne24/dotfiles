@@ -182,23 +182,37 @@ case "$IDE" in
     # and cannot be clicked directly. Needs Accessibility permission, so treat
     # failure as non-fatal.
     osascript <<'EOF' || echo "Could not open the Pull Requests view automatically"
-tell application "Visual Studio Code"
-    activate
-end tell
+-- keystroke always goes to the frontmost app, never to the process named in a
+-- tell block, so wait for the app to actually come forward and bail out rather
+-- than type a command and a Return into whatever happens to be in front.
+on waitForFront(targetID, timeoutSeconds)
+    tell application "System Events"
+        set waited to 0
+        repeat until (bundle identifier of (first process whose frontmost is true)) is targetID
+            if waited >= timeoutSeconds then error "app never came to the front; refusing to type"
+            delay 0.5
+            set waited to waited + 0.5
+        end repeat
+    end tell
+end waitForFront
 
-delay 2
+set targetID to id of application "Visual Studio Code"
+
+tell application "Visual Studio Code" to activate
+waitForFront(targetID, 15)
 
 tell application "System Events"
-    tell process "Code"
-        keystroke "p" using {command down, shift down}
-        delay 1
+    keystroke "p" using {command down, shift down}
+    delay 1
 
-        keystroke "GitHub Pull Request: Focus on Review Pull Request View"
-        delay 1.5
-
-        key code 36
-    end tell
+    keystroke "GitHub Pull Request: Focus on Review Pull Request View"
+    delay 1.5
 end tell
+
+-- Re-check before Return in case focus moved while the name was being typed.
+waitForFront(targetID, 5)
+
+tell application "System Events" to key code 36
 EOF
     ;;
 
@@ -212,24 +226,35 @@ EOF
     # Open the GitHub Pull Requests tool window via Find Action. Needs
     # Accessibility permission, so treat failure as non-fatal.
     osascript <<'EOF' || echo "Could not open the Pull Requests tool window automatically"
-tell application "IntelliJ IDEA"
-    activate
-end tell
+-- See the VS Code branch: keystrokes go to the frontmost app, so gate on it.
+on waitForFront(targetID, timeoutSeconds)
+    tell application "System Events"
+        set waited to 0
+        repeat until (bundle identifier of (first process whose frontmost is true)) is targetID
+            if waited >= timeoutSeconds then error "app never came to the front; refusing to type"
+            delay 0.5
+            set waited to waited + 0.5
+        end repeat
+    end tell
+end waitForFront
 
-delay 2
+set targetID to id of application "IntelliJ IDEA"
+
+tell application "IntelliJ IDEA" to activate
+waitForFront(targetID, 20)
 
 tell application "System Events"
-    tell process "IntelliJ IDEA"
-        keystroke "a" using {command down, shift down}
-        delay 1
+    keystroke "a" using {command down, shift down}
+    delay 1
 
-        keystroke "View Pull Requests"
-        delay 1.5
-
-        key code 36
-        delay 3
-    end tell
+    keystroke "View Pull Requests"
+    delay 1.5
 end tell
+
+waitForFront(targetID, 5)
+
+tell application "System Events" to key code 36
+delay 3
 EOF
     ;;
 esac

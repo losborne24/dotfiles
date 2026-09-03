@@ -34,8 +34,8 @@ if [[ -z "$TASK" ]]; then
   exit 1
 fi
 
-REPO="$HOME/code/$REPO_NAME"
-WORKTREES="$HOME/code/$REPO_NAME-worktrees"
+REPO="$HOME/Documents/GitHub/$REPO_NAME"
+WORKTREES="$HOME/Documents/GitHub/$REPO_NAME-worktrees"
 WORKTREE="$WORKTREES/$TASK"
 
 if [[ ! -d "$REPO" ]]; then

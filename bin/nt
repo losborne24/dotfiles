@@ -62,13 +62,20 @@ echo "Worktree: $WORKTREE"
 "$IDE" . >/dev/null 2>&1 &
 disown
 
-# Open a claude tab in the current cmux workspace, rooted at the worktree.
+# Open a terminal tab in the current cmux workspace and run claude in it.
 if command -v cmux >/dev/null 2>&1; then
-  cmux new-surface \
-    --type agent-session \
-    --provider claude \
+  SURFACE_OUT="$(cmux new-surface \
+    --type terminal \
     --working-directory "$WORKTREE" \
-    --focus true >/dev/null 2>&1 || true
+    --focus true 2>&1)" || SURFACE_OUT=""
+
+  # Send to the new surface explicitly; the default target is this terminal.
+  SURFACE_REF="$(printf '%s' "$SURFACE_OUT" | grep -o 'surface:[0-9]\+' | head -1)"
+  if [[ -n "$SURFACE_REF" ]]; then
+    cmux send --surface "$SURFACE_REF" 'claude\n' >/dev/null 2>&1 || true
+  else
+    echo "Opened a cmux tab but could not resolve its surface; run claude manually."
+  fi
 fi
 
 # The nt shell function reads this to cd the calling shell into the worktree.

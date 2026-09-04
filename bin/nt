@@ -7,13 +7,13 @@ IDE="idea"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --vscode)
+    -v|--vscode)
       IDE="code"
       ;;
-    --idea)
+    -i|--idea)
       IDE="idea"
       ;;
-    --repo)
+    -r|--repo)
       shift
       REPO_NAME="$1"
       ;;
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$TASK" ]]; then
-  echo "Usage: nt <task> [--repo <repo>] [--idea|--vscode]"
+  echo "Usage: nt [-v|-i] [-r <repo>] <task>"
   exit 1
 fi
 
@@ -60,4 +60,3 @@ echo "Repo: $REPO_NAME"
 echo "Worktree: $WORKTREE"
 
 "$IDE" .
-claude

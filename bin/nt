@@ -61,3 +61,17 @@ echo "Worktree: $WORKTREE"
 
 "$IDE" . >/dev/null 2>&1 &
 disown
+
+# Open a claude tab in the current cmux workspace, rooted at the worktree.
+if command -v cmux >/dev/null 2>&1; then
+  cmux new-surface \
+    --type agent-session \
+    --provider claude \
+    --working-directory "$WORKTREE" \
+    --focus true >/dev/null 2>&1 || true
+fi
+
+# The nt shell function reads this to cd the calling shell into the worktree.
+if [[ -n "$NT_CD_FILE" ]]; then
+  printf '%s\n' "$WORKTREE" >"$NT_CD_FILE"
+fi

@@ -4,6 +4,8 @@ set -e
 TASK=""
 REPO_NAME="Treasury2"
 IDE="idea"
+BASE=""
+FETCH=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -16,6 +18,13 @@ while [[ $# -gt 0 ]]; do
     -r|--repo)
       shift
       REPO_NAME="$1"
+      ;;
+    -f|--from)
+      shift
+      BASE="$1"
+      ;;
+    --no-fetch)
+      FETCH=0
       ;;
     *)
       if [[ -z "$TASK" ]]; then
@@ -30,7 +39,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$TASK" ]]; then
-  echo "Usage: nt [-v|-i] [-r <repo>] <task>"
+  echo "Usage: nt [-v|-i] [-r <repo>] [-f <base-ref>] [--no-fetch] <task>"
   exit 1
 fi
 
@@ -51,11 +60,30 @@ fi
 mkdir -p "$WORKTREES"
 
 cd "$REPO"
-git worktree add "$WORKTREE" -b "$TASK"
+
+# Default base: the remote's default branch (origin/HEAD), falling back to origin/main.
+if [[ -z "$BASE" ]]; then
+  DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  BASE="${DEFAULT_BRANCH:-origin/main}"
+fi
+
+if [[ $FETCH -eq 1 ]]; then
+  # Only fetch when the base lives on a remote; a local ref needs no network.
+  if [[ "$BASE" == origin/* ]]; then
+    git fetch origin "${BASE#origin/}"
+  fi
+fi
+
+if ! git rev-parse --verify --quiet "$BASE" >/dev/null; then
+  echo "Base ref not found: $BASE"
+  exit 1
+fi
+
+git worktree add "$WORKTREE" -b "$TASK" "$BASE"
 
 cd "$WORKTREE"
 
-echo "Created $TASK"
+echo "Created $TASK from $BASE"
 echo "Repo: $REPO_NAME"
 echo "Worktree: $WORKTREE"
 

@@ -20,9 +20,9 @@ echo
 git diff --stat
 
 echo
-read -r -p "Commit these changes? [y/N] " CONFIRM
+read -r -p "Commit these changes? [Y/n] " CONFIRM
 
-if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+if [[ -n "$CONFIRM" && "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
   echo "Cancelled."
   exit 0
 fi
@@ -33,8 +33,8 @@ git commit -m "$MESSAGE"
 BRANCH=$(git branch --show-current)
 
 echo
-read -r -p "Push $BRANCH? [y/N] " PUSH
+read -r -p "Push $BRANCH? [Y/n] " PUSH
 
-if [[ "$PUSH" == "y" || "$PUSH" == "Y" ]]; then
+if [[ -z "$PUSH" || "$PUSH" == "y" || "$PUSH" == "Y" ]]; then
   git push -u origin "$BRANCH"
 fi
